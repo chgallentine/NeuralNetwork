@@ -2,7 +2,7 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-11 09:33:34
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-26 12:00:35
+* @Last Modified time: 2019-10-26 13:09:02
 */
 
 #include <iomanip>
@@ -25,8 +25,7 @@ int main(int argc, char **argv)
 
 	vector<pair<int,int> > layers = { 
 		make_pair(2, INPUT),
-		make_pair(4, SIGMOID),
-		make_pair(4, SIGMOID),
+		make_pair(2, SIGMOID),
 		make_pair(1, SIGMOID)
 	};
 
@@ -74,17 +73,6 @@ int main(int argc, char **argv)
 	outputs.push_back(nn_output);
 
 	NeuralNet_t *neuralnet = neuralnet_generate(layers);
-
-
-	cout << "INPUT 1,0\n";
-	nn_input.data[0][0] = 1.0;
-	nn_input.data[0][1] = 0.0;
-
-	neuralnet_set_input(neuralnet, nn_input);
-	neuralnet_feed_forward(neuralnet);
-
-	mat_print((*(neuralnet->layers.end()-1))->mat);
-
 
 	cout << "=============================\n";
 	int i = 0, j = 0;
@@ -147,7 +135,7 @@ int main(int argc, char **argv)
 
 		backprop(neuralnet, nn_output, *err);
 
-		adjust_weight(neuralnet, 0.01);
+		adjust_weight(neuralnet, 0.005);
 
 
 		mat_free(err);

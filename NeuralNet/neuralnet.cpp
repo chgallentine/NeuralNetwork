@@ -2,13 +2,13 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-15 21:57:03
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-25 12:06:46
+* @Last Modified time: 2019-10-26 12:59:56
 */
 
 #include "neuralnet.h"
 #include "../Matrix/matrix.h"
 
-double frand(double rmax);
+double frand(double rmin, double rmax);
 
 NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 {
@@ -24,6 +24,8 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 					l_size_type[i].second, i,
 					NULL, NULL, 
 					make_pair(1,l_size_type[i].first)));
+
+			nn->layers[i]->bias = init_ones_matrix(1,1);
 		}
 		else
 		{
@@ -32,6 +34,12 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 					l_size_type[i].second, i,
 					*(nn->layers.end()-1), NULL, 
 					make_pair(1,l_size_type[i].first)));
+
+			if (i < (int) l_size_type.size()-1)
+			{
+				(*(nn->layers.end()-1))->bias = init_ones_matrix(1,1);
+			}
+
 		}
 
 		if (i < (int) l_size_type.size()-1)
@@ -42,8 +50,12 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 					*(nn->layers.end()-1), NULL));
 
 
-			(*(nn->layers.end()-1))->mat = init_weight_matrix(
-				(*(nn->layers.end()-2))->mat->col,l_size_type[i+1].first, 3.0);
+			(*(nn->layers.end()-1))->mat = init_rand_matrix(
+				(*(nn->layers.end()-2))->mat->col,
+				l_size_type[i+1].first, 
+				MIN_INIT_WEIGHT, MAX_INIT_WEIGHT);
+
+			(*(nn->layers.end()-1))->bias = init_ones_matrix(1,l_size_type[i+1].first);
 		}
 	}
 
@@ -71,9 +83,10 @@ Layer_t::Layer_t(int _act, int _id, Layer_t *_prev, Layer_t *_next, pair<int, in
 {
 	mat = new Matrix_t(size.first,size.second);
 	d_mat = new Matrix_t(size.first, size.second);
+
 	if (_id >= 0)
 	{
-		bias = init_bias_matrix(1, size.second);
+		bias = init_ones_matrix(1, size.second);
 	}
 	else
 	{
@@ -85,7 +98,7 @@ Layer_t::Layer_t(int _act, int _id, Layer_t *_prev, Layer_t *_next, pair<int, in
 
 void neuralnet_feed_forward(NeuralNet_t *nn)
 {
-	Matrix_t *bias = NULL;
+	// Matrix_t *bias = NULL;
 	Matrix_t *activated = NULL;
 	Matrix_t *mult = NULL;
 
@@ -99,11 +112,11 @@ void neuralnet_feed_forward(NeuralNet_t *nn)
 			// A(*it) * W(*(it+1))
 			mat_mult(activated, (*(it+1))->mat, &mult);
 			
-			init_bias_matrix(1, mult->col, &bias);
+			// init_ones_matrix(1, mult->col, &bias);
 
 			// A(*it) * W(*(it+1)) + 1.0
-			(*(it+2))->mat = mat_add(mult, bias);
-			mat_free(bias);
+			(*(it+2))->mat = mat_add(mult, (*(it+1))->bias);
+			// mat_free(bias);
 			mat_free(activated);
 			mat_free(mult);
 		}
@@ -111,7 +124,7 @@ void neuralnet_feed_forward(NeuralNet_t *nn)
 }
 
 
-void init_weight_matrix(int rows, int cols, double wrange, Matrix_t **W)
+void init_rand_matrix(int rows, int cols, double min_range, double max_range, Matrix_t **W)
 {
 	(*W) = new Matrix_t(rows, cols);
 
@@ -119,12 +132,12 @@ void init_weight_matrix(int rows, int cols, double wrange, Matrix_t **W)
 	{
 		for (auto val = row->begin(); val != row->end(); val++)
 		{
-			*val = frand(wrange);
+			*val = frand(min_range, max_range);
 		}
 	}
 }
 
-Matrix_t *init_weight_matrix(int rows, int cols, double wrange)
+Matrix_t *init_rand_matrix(int rows, int cols, double min_range, double max_range)
 {
 	Matrix_t *W = new Matrix_t(rows, cols);
 
@@ -132,14 +145,14 @@ Matrix_t *init_weight_matrix(int rows, int cols, double wrange)
 	{
 		for (auto val = row->begin(); val != row->end(); val++)
 		{
-			*val = frand(wrange);
+			*val = frand(min_range, max_range);
 		}
 	}
 
 	return W;
 }
 
-void init_bias_matrix(int rows, int cols, Matrix_t **B)
+void init_ones_matrix(int rows, int cols, Matrix_t **B)
 {
 	(*B) = new Matrix_t(rows, cols);
 
@@ -152,7 +165,7 @@ void init_bias_matrix(int rows, int cols, Matrix_t **B)
 	}
 }
 
-Matrix_t *init_bias_matrix(int rows, int cols)
+Matrix_t *init_ones_matrix(int rows, int cols)
 {
 	Matrix_t *B = new Matrix_t(rows, cols);
 
@@ -336,6 +349,9 @@ void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 	mat_free((*(nn->layers.end()-2))->d_mat);
 	(*(nn->layers.end()-2))->d_mat = mat_mult(dzl_dwl, passdown_mat);
 
+	mat_free((*(nn->layers.end()-2))->d_bias);
+	(*(nn->layers.end()-2))->d_bias = mat_copy(*passdown_mat);
+
 	for (int lyr = (int) nn->layers.size()-3; lyr > 0; lyr -= 2)
 	{
 		mat_free(dzlplus1_dal);
@@ -365,6 +381,9 @@ void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 		nn->layers[lyr - 1]->d_mat = mat_mult(dzl_dwl, pd_elmwise_dal_dzl);
 		if (!(nn->layers[lyr - 1]->d_mat)) { cout << "ERROR MAT MULT 361\n"; exit(0); }
 
+		mat_free(nn->layers[lyr - 1]->d_bias);
+		nn->layers[lyr - 1]->d_bias = mat_copy(*passdown_mat);
+
 	}
 
 	mat_free(passdown_mat);
@@ -381,6 +400,8 @@ void adjust_weight(NeuralNet_t *nn, double lr)
 	{
 		mat_scalar_mult_p(lr, nn->layers[i]->d_mat);
 		mat_sub_p(nn->layers[i]->d_mat,nn->layers[i]->mat);
+
+		mat_sub_p(nn->layers[i]->d_bias,nn->layers[i]->bias);
 	}
 }
 
@@ -499,9 +520,9 @@ double d_softmax(int i, Row& x)
 }
 
 
-double frand(double rmax)
+double frand(double rmin, double rmax)
 {
 	double res = (double) rand() / RAND_MAX;
-	return -rmax + 2 * rmax * res;
+	return (res * (rmax - rmin)) + rmin;
 }
 

@@ -17,6 +17,9 @@
 #define SOFTMAX 4
 #define WEIGHT 	5
 
+#define MAX_INIT_WEIGHT 1.0
+#define MIN_INIT_WEIGHT -1.0
+
 using namespace std;
 
 typedef vector<vector<double> > Matrix;
@@ -33,6 +36,7 @@ struct Layer_t {
 	Matrix_t *d_mat;
 
 	Matrix_t *bias;
+	Matrix_t *d_bias;
 
 	// Doubly linked list of layers
 	Layer_t *prev;
@@ -56,11 +60,11 @@ void neuralnet_print_dims(NeuralNet_t &nn);
 
 void neuralnet_feed_forward(NeuralNet_t *nn);
 
-void init_weight_matrix(int rows, int cols, double wrange, Matrix_t **W);
-Matrix_t *init_weight_matrix(int rows, int cols, double wrange);
+void init_rand_matrix(int rows, int cols, double min_range, double max_range, Matrix_t **W);
+Matrix_t *init_rand_matrix(int rows, int cols, double min_range, double max_range);
 
-void init_bias_matrix(int rows, int cols, Matrix_t **B);
-Matrix_t *init_bias_matrix(int rows, int cols);
+void init_ones_matrix(int rows, int cols, Matrix_t **B);
+Matrix_t *init_ones_matrix(int rows, int cols);
 
 void activate(Matrix_t *a, int activation, Matrix_t **output);
 Matrix_t *activate(Matrix_t *a, int activation);
