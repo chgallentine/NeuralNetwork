@@ -2,7 +2,7 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-15 21:57:03
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-20 15:10:28
+* @Last Modified time: 2019-10-25 12:06:46
 */
 
 #include "neuralnet.h"
@@ -15,7 +15,7 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 	NeuralNet_t *nn = new NeuralNet_t();
 	nn->layers.reserve(l_size_type.size() + l_size_type.size()-1);
 
-	for (int i = 0; i < l_size_type.size(); i++)
+	for (int i = 0; i < (int) l_size_type.size(); i++)
 	{
 		if (i == 0)
 		{
@@ -34,12 +34,13 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 					make_pair(1,l_size_type[i].first)));
 		}
 
-		if (i < l_size_type.size()-1)
+		if (i < (int) l_size_type.size()-1)
 		{
 			nn->layers.push_back(
 				new Layer_t(
 					WEIGHT, -1,
 					*(nn->layers.end()-1), NULL));
+
 
 			(*(nn->layers.end()-1))->mat = init_weight_matrix(
 				(*(nn->layers.end()-2))->mat->col,l_size_type[i+1].first, 3.0);
@@ -51,8 +52,7 @@ NeuralNet_t *neuralnet_generate(vector<pair<int, int> >& l_size_type)
 
 void neuralnet_set_input(NeuralNet_t *nn, Matrix_t &in)
 {
-	mat_free((*(nn->layers.begin()))->mat);
-	(*(nn->layers.begin()))->mat = mat_copy(in);
+	(*(nn->layers.begin()))->mat->data = in.data;
 }
 
 Layer_t::Layer_t(int _act, int _id, Layer_t *_prev, Layer_t *_next)
@@ -89,7 +89,7 @@ void neuralnet_feed_forward(NeuralNet_t *nn)
 	Matrix_t *activated = NULL;
 	Matrix_t *mult = NULL;
 
-	for (auto it = nn->layers.begin(); it != nn->layers.end() - 1; it++)
+	for (auto it = nn->layers.begin(); it != nn->layers.end() - 1; it+=2)
 	{
 		if ((*it)->activation != 5)
 		{	
@@ -98,12 +98,11 @@ void neuralnet_feed_forward(NeuralNet_t *nn)
 			
 			// A(*it) * W(*(it+1))
 			mat_mult(activated, (*(it+1))->mat, &mult);
-
+			
 			init_bias_matrix(1, mult->col, &bias);
 
 			// A(*it) * W(*(it+1)) + 1.0
 			(*(it+2))->mat = mat_add(mult, bias);
-
 			mat_free(bias);
 			mat_free(activated);
 			mat_free(mult);
@@ -171,9 +170,9 @@ Matrix_t *init_bias_matrix(int rows, int cols)
 void activate(Matrix_t *a, int activation, Matrix_t **output)
 {
 	*output = new Matrix_t(a->data.size(), (*(a->data.begin())).size());
-	for (int row = 0; row < a->data.size(); row++)
+	for (int row = 0; row < (int) a->data.size(); row++)
 	{
-		for (int col = 0; col < (*(a->data.begin())).size(); col++)
+		for (int col = 0; col < (int) (*(a->data.begin())).size(); col++)
 		{
 			if (activation == SIGMOID)
 			{
@@ -198,9 +197,9 @@ void activate(Matrix_t *a, int activation, Matrix_t **output)
 Matrix_t *activate(Matrix_t *a, int activation)
 {
 	Matrix_t *res = new Matrix_t(a->data.size(), (*(a->data.begin())).size());
-	for (int row = 0; row < a->data.size(); row++)
+	for (int row = 0; row < (int) a->data.size(); row++)
 	{
-		for (int col = 0; col < (*(a->data.begin())).size(); col++)
+		for (int col = 0; col < (int) (*(a->data.begin())).size(); col++)
 		{
 			if (activation == SIGMOID)
 			{
@@ -227,9 +226,9 @@ Matrix_t *activate(Matrix_t *a, int activation)
 void d_activate(Matrix_t *a, int activation, Matrix_t **output)
 {
 	*output = new Matrix_t(a->data.size(), (*(a->data.begin())).size());
-	for (int row = 0; row < a->data.size(); row++)
+	for (int row = 0; row < (int) a->data.size(); row++)
 	{
-		for (int col = 0; col < (*(a->data.begin())).size(); col++)
+		for (int col = 0; col < (int) (*(a->data.begin())).size(); col++)
 		{
 			if (activation == SIGMOID)
 			{
@@ -255,9 +254,9 @@ Matrix_t *d_activate(Matrix_t *a, int activation)
 {
 	Matrix_t *res = new Matrix_t(a->data.size(), (*(a->data.begin())).size());
 
-	for (int row = 0; row < a->data.size(); row++)
+	for (int row = 0; row < (int) a->data.size(); row++)
 	{
-		for (int col = 0; col < (*(a->data.begin())).size(); col++)
+		for (int col = 0; col < (int) (*(a->data.begin())).size(); col++)
 		{
 			if (activation == SIGMOID)
 			{
@@ -289,12 +288,16 @@ double calc_error(NeuralNet_t &nn, Matrix_t &expected, Matrix_t **err)
 	Matrix_t *div = NULL;
 	double error;
 
-	mat_sub((*(nn.layers.end()-1))->mat, &expected, &diff);
+	mat_sub((*(nn.layers.end()-1))->mat, &expected, &diff);	
+
 	mat_elementwise_square(diff, &square);
+
 	mat_scalar_mult(0.5, square, &div);
 
 	(*err) = mat_copy(*div);
-	error = mat_sum(div);
+
+	error = mat_sum(div);	
+
 
 	mat_free(diff);
 	mat_free(square);
@@ -307,90 +310,77 @@ double calc_error(NeuralNet_t &nn, Matrix_t &expected, Matrix_t **err)
 
 void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 {
-	// dZ^(l+1)/dA^l == w^(l+1) == The weight matrix of the next highest layer
-	Matrix_t *w_lplus1 = NULL; 
-	// dA^l/dZ^l == d_actiavte function for current layer
-	Matrix_t *A_l_prime = NULL;
-	// dZ^l/dW^l == A^(l-1) == the activation of the next lower layer
-	Matrix_t *A_lminus1 = NULL;
+	Matrix_t *dzl_dwl = NULL;
+	Matrix_t *dal_dzl = NULL;
+	Matrix_t *dzlplus1_dal = NULL;
+	Matrix_t *passdown_mat = NULL;
+	Matrix_t *pd_x_dzlplus1_dal = NULL;
+	Matrix_t *pd_elmwise_dal_dzl = NULL;
 
-	Matrix_t *layer_input = NULL;
+	// Output minus expected values == dE_daL
+	dzlplus1_dal = mat_sub((*(nn->layers.end()-1))->mat, &expected);
+	if (!dzlplus1_dal) { cout << "ERROR MAT SUB 219\n"; exit(0); }
 
-	Matrix_t *passdown_mat = NULL; // For each layer, value passed on
-	Matrix_t *pass_mat_cpy = NULL;
+	// Derivative of activation for layer L
+	dal_dzl = d_activate((*(nn->layers.end()-1))->mat, (*(nn->layers.end()-1))->activation);
+	if (!dal_dzl) { cout << "ERROR D_ACTIVATE LAST LAYER\n"; exit(0); }
 
-	// // Input to (output layer - 1)
-	// cout << "MAT MULT 324\n";
-	layer_input = mat_mult((*(nn->layers.end()-3))->mat, (*(nn->layers.end()-2))->mat);
-	// The derivative of the output layer
-	A_l_prime = d_activate(layer_input, (*(nn->layers.end()-1))->activation);
+	// Get the activation for layer L-1
+	dzl_dwl = mat_copy(*(*(nn->layers.end()-3))->mat);
 
-	// Calculate the derivative of the error function WRT output
-	w_lplus1 = mat_sub((*(nn->layers.end()-1))->mat, &expected);
-	passdown_mat = mat_elementwise_mult(w_lplus1, A_l_prime);
+	// Track the first two terms I.E. dE_dzL
+	passdown_mat = mat_elementwise_mult(dzlplus1_dal, dal_dzl);
 
-	A_lminus1 = mat_transpose((*(nn->layers.end()-3))->mat);
+	mat_transpose_p(dzl_dwl);
 
-	// Set the Lth weight delta matrix 
-	// cout << "MAT MULT 326\n";
-	mat_mult(A_lminus1, passdown_mat, &(*(nn->layers.end()-2))->d_mat);
+	mat_free((*(nn->layers.end()-2))->d_mat);
+	(*(nn->layers.end()-2))->d_mat = mat_mult(dzl_dwl, passdown_mat);
 
-	mat_free(w_lplus1);
-	mat_free(A_l_prime);
-	mat_free(layer_input);
-	mat_free(A_lminus1);
+	for (int lyr = (int) nn->layers.size()-3; lyr > 0; lyr -= 2)
+	{
+		mat_free(dzlplus1_dal);
+		dzlplus1_dal = mat_copy(*(nn->layers[lyr + 1]->mat));
 
+		mat_free(dal_dzl);
+		dal_dzl = d_activate((nn->layers[lyr])->mat, (nn->layers[lyr])->activation);
+		if (!dal_dzl) { cout << "ERROR D_ACTIVATE LAST LAYER\n"; exit(0); }
 
-	for (int i = nn->layers.size()-3; i > 0; i-=2)
-	{		
-		// cout << "MAT MULT 346\n";
-		layer_input = mat_mult((*(nn->layers[i-2])).mat, (*(nn->layers[i-1])).mat);
+		mat_free(dzl_dwl);
+		dzl_dwl = mat_copy(*(nn->layers[lyr-2])->mat);
 
-		w_lplus1 = nn->layers[i+1]->mat;
-		A_l_prime = d_activate(layer_input, (*(nn->layers[i])).activation);
+		mat_transpose_p(dzlplus1_dal);
+		mat_transpose_p(dzl_dwl);
 
-		A_lminus1 = mat_transpose((*(nn->layers[i-2])).mat);
+		mat_free(pd_x_dzlplus1_dal);
+		pd_x_dzlplus1_dal = mat_mult(passdown_mat, dzlplus1_dal);
+		if (!pd_x_dzlplus1_dal) { cout << "ERROR MAT MULT 351\n"; exit(0); }
 
-		pass_mat_cpy = mat_copy(*passdown_mat);
-
-		Matrix_t *pd_x_w_lplus1_T = mat_mult(pass_mat_cpy, mat_transpose_p(&w_lplus1));
-		Matrix_t *pd_x_w_lplus1_T_dotx_a_prime_l = mat_elementwise_mult(A_l_prime, pd_x_w_lplus1_T);
+		pd_elmwise_dal_dzl = mat_elementwise_mult(pd_x_dzlplus1_dal, dal_dzl);
+		if (!pd_elmwise_dal_dzl) { cout << "ERROR MAT ELEM MULT 354\n"; exit(0); }
 
 		mat_free(passdown_mat);
-		passdown_mat = mat_copy(*pd_x_w_lplus1_T_dotx_a_prime_l);
+		passdown_mat = mat_copy(*pd_elmwise_dal_dzl);
 
-		// cout << "MAT MULT 363\n";
-	 	mat_mult(A_lminus1, passdown_mat, &(*(nn->layers[i-1])).d_mat);
+		mat_free(nn->layers[lyr - 1]->d_mat);
+		nn->layers[lyr - 1]->d_mat = mat_mult(dzl_dwl, pd_elmwise_dal_dzl);
+		if (!(nn->layers[lyr - 1]->d_mat)) { cout << "ERROR MAT MULT 361\n"; exit(0); }
 
+	}
 
-		mat_free(w_lplus1);
-		mat_free(A_l_prime);
-		mat_free(layer_input);
-		mat_free(A_lminus1);
-		mat_free(pass_mat_cpy);
-		mat_free(pd_x_w_lplus1_T);
-		mat_free(pd_x_w_lplus1_T_dotx_a_prime_l);
-	}	
+	mat_free(passdown_mat);
+	mat_free(pd_x_dzlplus1_dal);
+	mat_free(dzl_dwl);
+	mat_free(dal_dzl);
+	mat_free(dzlplus1_dal);
+	mat_free(pd_elmwise_dal_dzl);
 }
 
 void adjust_weight(NeuralNet_t *nn, double lr)
 {
-	Matrix_t *tmp_sub = NULL;
-	// Hit each weight layer
-	for (int i = 1; i < nn->layers.size()-1; i += 2)
+	for (int i = 1; i < (int) nn->layers.size()-1; i += 2)
 	{
-		nn->layers[i]->d_mat = mat_scalar_mult_p(lr, nn->layers[i]->d_mat);
-		// cout << "fine1\n";
-		mat_sub(nn->layers[i]->mat,nn->layers[i]->d_mat,&tmp_sub);
-		// cout << "fine2\n";
-		// mat_free(nn->layers[i]->mat);
-		// cout << "fine3\n";
-		// mat_free(nn->layers[i]->d_mat);
-		// cout << "fine4\n";
-
-		nn->layers[i]->mat = mat_copy(*tmp_sub);
-		// cout << "fine5\n";
-		// mat_free(tmp_sub);
+		mat_scalar_mult_p(lr, nn->layers[i]->d_mat);
+		mat_sub_p(nn->layers[i]->d_mat,nn->layers[i]->mat);
 	}
 }
 
@@ -462,6 +452,17 @@ void neuralnet_print(NeuralNet_t *nn, bool tf)
 	}
 }
 
+void neuralnet_print_dims(NeuralNet_t &nn)
+{
+	for (auto lyr = nn.layers.begin(); lyr != nn.layers.end(); lyr++)
+	{
+
+	cout 
+		<< (*lyr)->id 
+		<< ": " << (*lyr)->mat->row 
+		<< "x" << (*lyr)->mat->col << endl;
+	}
+}
 
 
 
@@ -488,7 +489,7 @@ double d_softmax(int i, Row& x)
 	double total = 0.0;
 	double total_n_i = 0.0;
 
-	for (int j = 0; j < x.size(); j++)
+	for (int j = 0; j < (int) x.size(); j++)
 	{
 		total += exp(x[j]);
 		total_n_i += (j != i ? exp(x[j]) : 0.0);

@@ -2,7 +2,7 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-11 15:59:15
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-11 16:27:50
+* @Last Modified time: 2019-10-24 13:32:14
 */
 
 #include<assert.h>
@@ -65,9 +65,9 @@ void test_mat_transpose()
 
 bool check_equal(Matrix &a, Matrix &b)
 {
-	for (int i = 0; i < a.size(); i++)
+	for (int i = 0; i < (int) a.size(); i++)
 	{
-		for (int j = 0; j < (*(a.begin())).size(); j++)
+		for (int j = 0; j < (int) (*(a.begin())).size(); j++)
 		{
 			if (a[i][j] != b[i][j])
 			{

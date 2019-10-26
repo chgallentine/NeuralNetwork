@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-Wall -std=c++11
+CFLAGS=-Wall -g -std=c++11
 
 TARGET=main
 
@@ -7,6 +7,10 @@ all : $(TARGET) test
 
 run : $(TARGET)
 	./$(TARGET)
+
+scp : 
+	rm -rf *.o
+	scp -r ./* jgallen@ada8.computing.clemson.edu:~/nn/
 
 $(TARGET) : main.o matrix.o convert.o dataset.o neuralnet.o
 	$(CC) $(CFLAGS) $^ -o $@

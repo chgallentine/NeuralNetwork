@@ -31,6 +31,17 @@ int mat_block_mult(Matrix_t *a, Matrix_t *b, Matrix_t **res);
 int mat_horizontal_concat(Matrix_t *a, Matrix_t *b, Matrix_t **res);
 int mat_vertical_concat(Matrix_t *a, Matrix_t *b, Matrix_t **res);
 
+int mat_transpose_p(Matrix_t *in);
+int mat_add_p(Matrix_t *a, Matrix_t *b);
+int mat_sub_p(Matrix_t *a, Matrix_t *b);
+int mat_scalar_mult_p(double a, Matrix_t *in);
+int mat_mult_p(Matrix_t *a, Matrix_t *b);
+int mat_elementwise_mult_p(Matrix_t *a, Matrix_t *b);
+int mat_elementwise_square_p(Matrix_t *a);
+int mat_block_mult_p(Matrix_t *a, Matrix_t *b);
+int mat_horizontal_concat_p(Matrix_t *a, Matrix_t *b);
+int mat_vertical_concat_p(Matrix_t *a, Matrix_t *b);
+
 Matrix_t *mat_transpose(Matrix_t *in);
 Matrix_t *mat_add(Matrix_t *a, Matrix_t *b);
 Matrix_t *mat_sub(Matrix_t *a, Matrix_t *b);
@@ -43,11 +54,12 @@ Matrix_t *mat_block_mult(Matrix_t *a, Matrix_t *b);
 Matrix_t *mat_horizontal_concat(Matrix_t *a, Matrix_t *b);
 Matrix_t *mat_vertical_concat(Matrix_t *a, Matrix_t *b);
 
-Matrix_t *mat_transpose_p(Matrix_t **in);
-Matrix_t *mat_scalar_mult_p(double a, Matrix_t *in);
-Matrix_t *mat_elementwise_square_p(Matrix_t *a);
+Matrix_t *mat_transpose_r(Matrix_t **in);
+Matrix_t *mat_scalar_mult_r(double a, Matrix_t *in);
+Matrix_t *mat_elementwise_square_r(Matrix_t *a);
 
 Matrix_t *mat_copy(Matrix_t &a);
+void mat_copy_data(Matrix_t *a, Matrix_t *b);
 
 void mat_print(Matrix_t *a);
 void mat_print(Matrix &a);

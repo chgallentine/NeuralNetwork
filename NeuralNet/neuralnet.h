@@ -3,6 +3,9 @@
 #ifndef NEURALNET_H
 #define NEURALNET_H
 
+#define ASSERT 1
+
+#include <assert.h>
 #include <cmath>
 #include <utility>
 #include <vector>
@@ -49,6 +52,7 @@ void neuralnet_set_input(NeuralNet_t *nn, Matrix_t &in);
 
 void neuralnet_print(NeuralNet_t *nn);
 void neuralnet_print(NeuralNet_t *nn, bool tf);
+void neuralnet_print_dims(NeuralNet_t &nn);
 
 void neuralnet_feed_forward(NeuralNet_t *nn);
 
