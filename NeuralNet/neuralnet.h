@@ -5,6 +5,8 @@
 
 #define ASSERT 1
 
+#define INCLUDE_BIAS true
+
 #include <assert.h>
 #include <cmath>
 #include <utility>
@@ -17,6 +19,8 @@
 #define SOFTMAX 4
 #define WEIGHT 	5
 
+
+#define TRAINING_EXAMPLES 4
 #define MAX_INIT_WEIGHT 1.0
 #define MIN_INIT_WEIGHT -1.0
 

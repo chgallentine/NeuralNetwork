@@ -2,7 +2,7 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-15 21:57:03
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-26 12:59:56
+* @Last Modified time: 2019-10-27 13:03:19
 */
 
 #include "neuralnet.h"
@@ -115,8 +115,15 @@ void neuralnet_feed_forward(NeuralNet_t *nn)
 			// init_ones_matrix(1, mult->col, &bias);
 
 			// A(*it) * W(*(it+1)) + 1.0
-			(*(it+2))->mat = mat_add(mult, (*(it+1))->bias);
-			// mat_free(bias);
+			if (INCLUDE_BIAS)
+			{
+				(*(it+2))->mat = mat_add(mult, (*(it+1))->bias);
+			}
+			else
+			{
+				(*(it+2))->mat = mat_copy(*mult);
+			}
+			// mat_free(bias);Z
 			mat_free(activated);
 			mat_free(mult);
 		}
@@ -330,6 +337,8 @@ void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 	Matrix_t *pd_x_dzlplus1_dal = NULL;
 	Matrix_t *pd_elmwise_dal_dzl = NULL;
 
+	Matrix_t *tmp = NULL;
+
 	// Output minus expected values == dE_daL
 	dzlplus1_dal = mat_sub((*(nn->layers.end()-1))->mat, &expected);
 	if (!dzlplus1_dal) { cout << "ERROR MAT SUB 219\n"; exit(0); }
@@ -346,11 +355,31 @@ void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 
 	mat_transpose_p(dzl_dwl);
 
-	mat_free((*(nn->layers.end()-2))->d_mat);
-	(*(nn->layers.end()-2))->d_mat = mat_mult(dzl_dwl, passdown_mat);
+	// mat_free((*(nn->layers.end()-2))->d_mat);
 
-	mat_free((*(nn->layers.end()-2))->d_bias);
-	(*(nn->layers.end()-2))->d_bias = mat_copy(*passdown_mat);
+	mat_free(tmp);
+	tmp = mat_mult(dzl_dwl, passdown_mat);
+	if ((*(nn->layers.end()-2))->d_mat == NULL)
+	{
+		(*(nn->layers.end()-2))->d_mat = mat_copy(*tmp);
+		mat_scalar_mult_p(0.0, (*(nn->layers.end()-2))->d_mat);
+	}
+	mat_add_p(tmp, (*(nn->layers.end()-2))->d_mat);
+	// (*(nn->layers.end()-2))->d_mat = mat_mult(dzl_dwl, passdown_mat);
+
+	// mat_free((*(nn->layers.end()-2))->d_bias);
+	if (INCLUDE_BIAS)
+	{	
+		//
+		// (*(nn->layers.end()-2))->d_bias = mat_copy(*passdown_mat);	
+		// 
+		if ((*(nn->layers.end()-2))->d_bias == NULL)
+		{
+			(*(nn->layers.end()-2))->d_bias = mat_copy(*passdown_mat);
+			mat_scalar_mult_p(0.0, (*(nn->layers.end()-2))->d_bias);
+		}
+		mat_add_p(passdown_mat, (*(nn->layers.end()-2))->d_bias);	
+	}
 
 	for (int lyr = (int) nn->layers.size()-3; lyr > 0; lyr -= 2)
 	{
@@ -377,13 +406,32 @@ void backprop(NeuralNet_t *nn, Matrix_t &expected, Matrix_t &err)
 		mat_free(passdown_mat);
 		passdown_mat = mat_copy(*pd_elmwise_dal_dzl);
 
-		mat_free(nn->layers[lyr - 1]->d_mat);
-		nn->layers[lyr - 1]->d_mat = mat_mult(dzl_dwl, pd_elmwise_dal_dzl);
+		// mat_free(nn->layers[lyr - 1]->d_mat);
+		// 
+		mat_free(tmp);
+		tmp = mat_mult(dzl_dwl, pd_elmwise_dal_dzl);
+		if (!(nn->layers[lyr - 1]->d_mat))
+		{
+			(nn->layers[lyr - 1]->d_mat) = mat_copy(*tmp);
+			mat_scalar_mult_p(0.0, (nn->layers[lyr - 1]->d_mat));
+		}
+		//
+		// nn->layers[lyr - 1]->d_mat = mat_mult(dzl_dwl, pd_elmwise_dal_dzl);
 		if (!(nn->layers[lyr - 1]->d_mat)) { cout << "ERROR MAT MULT 361\n"; exit(0); }
+		mat_add_p(tmp, nn->layers[lyr - 1]->d_mat);
 
-		mat_free(nn->layers[lyr - 1]->d_bias);
-		nn->layers[lyr - 1]->d_bias = mat_copy(*passdown_mat);
+		// mat_free(nn->layers[lyr - 1]->d_bias);
+		if (INCLUDE_BIAS)
+		{
+			if (nn->layers[lyr - 1]->d_bias == NULL)
+			{
+				nn->layers[lyr - 1]->d_bias = mat_copy(*passdown_mat);
+				mat_scalar_mult_p(0.0, nn->layers[lyr - 1]->d_bias);
+			}
 
+			mat_add_p(passdown_mat, nn->layers[lyr - 1]->d_bias);
+			// nn->layers[lyr - 1]->d_bias = mat_copy(*passdown_mat);
+		}
 	}
 
 	mat_free(passdown_mat);
@@ -398,10 +446,25 @@ void adjust_weight(NeuralNet_t *nn, double lr)
 {
 	for (int i = 1; i < (int) nn->layers.size()-1; i += 2)
 	{
+		// Get Average Gradient
+		mat_scalar_mult_p((double) 1.0 / TRAINING_EXAMPLES, nn->layers[i]->d_mat);
+
+		// Multiply by learning rate and subtract from weights matrix
 		mat_scalar_mult_p(lr, nn->layers[i]->d_mat);
 		mat_sub_p(nn->layers[i]->d_mat,nn->layers[i]->mat);
 
-		mat_sub_p(nn->layers[i]->d_bias,nn->layers[i]->bias);
+		// Zero out weights matrix for future iterations
+		mat_scalar_mult_p(0.0, nn->layers[i]->d_mat);
+
+		// If bias is used, perform above 
+		if (nn->layers[i]->d_bias)
+		{
+			// Get Average Gradient
+			mat_scalar_mult_p((double) 1.0 / TRAINING_EXAMPLES, nn->layers[i]->d_bias);
+			
+			mat_sub_p(nn->layers[i]->d_bias,nn->layers[i]->bias);
+			mat_scalar_mult_p(0.0, nn->layers[i]->d_bias);
+		}
 	}
 }
 

@@ -2,7 +2,7 @@
 * @Author: Charlie Gallentine
 * @Date:   2019-10-11 09:33:34
 * @Last Modified by:   Charlie Gallentine
-* @Last Modified time: 2019-10-26 13:09:02
+* @Last Modified time: 2019-10-27 16:59:37
 */
 
 #include <iomanip>
@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 
 	vector<pair<int,int> > layers = { 
 		make_pair(2, INPUT),
-		make_pair(2, SIGMOID),
+		make_pair(5, SIGMOID),
 		make_pair(1, SIGMOID)
 	};
 
@@ -34,24 +34,33 @@ int main(int argc, char **argv)
 	vector<Matrix_t> inputs;
 	vector<Matrix_t> outputs;
 
-	double errors[1];
+	double total_error;
 
 	Matrix_t nn_input(1,2);
 	Matrix_t nn_output(1,1);
-	
 
-	nn_input.data[0][0] = 1.0;
-	nn_input.data[0][1] = 1.0;
+	nn_input.data[0][0] = 0.0;
+	nn_input.data[0][1] = 0.0;
 	
-	nn_output.data[0][0] = 0.0;
+	nn_output.data[0][0] = 0.1;
 
 	inputs.push_back(nn_input);
 	outputs.push_back(nn_output);
 
+
+	nn_input.data[0][0] = 1.0;
+	nn_input.data[0][1] = 1.0;
+	
+	nn_output.data[0][0] = 0.1;
+
+	inputs.push_back(nn_input);
+	outputs.push_back(nn_output);
+
+
 	nn_input.data[0][0] = 1.0;
 	nn_input.data[0][1] = 0.0;
 	
-	nn_output.data[0][0] = 1.0;
+	nn_output.data[0][0] = 0.9;
 
 	inputs.push_back(nn_input);
 	outputs.push_back(nn_output);
@@ -59,89 +68,50 @@ int main(int argc, char **argv)
 	nn_input.data[0][0] = 0.0;
 	nn_input.data[0][1] = 1.0;
 	
-	nn_output.data[0][0] = 1.0;
+	nn_output.data[0][0] = 0.9;
 
 	inputs.push_back(nn_input);
 	outputs.push_back(nn_output);
 
-	nn_input.data[0][0] = 0.0;
-	nn_input.data[0][1] = 0.0;
-	
-	nn_output.data[0][0] = 0.0;
-
-	inputs.push_back(nn_input);
-	outputs.push_back(nn_output);
 
 	NeuralNet_t *neuralnet = neuralnet_generate(layers);
 
 	cout << "=============================\n";
-	int i = 0, j = 0;
-	double prev = (double) INT_MAX; 
-	double avg_train = 0.0;
-	int count = 0;
-	// int consecutive = 0;
+	double curr, prev;
+	double lr = 0.01;
 
-	while (true)
+	for (int i = 0; i < 50000000; i++)
 	{
-		i++;
-
-		neuralnet_set_input(neuralnet, inputs[i % inputs.size()]);
-		neuralnet_feed_forward(neuralnet);
-
-		errors[i % outputs.size()] = calc_error(*neuralnet, outputs[i % outputs.size()], &err);
-
-		if (i % 100 == 0)
+		total_error = 0.0;
+		for (int j = 0; j < inputs.size(); j++)
 		{
-			prev = avg_train;
-			avg_train = 0.0;
+			neuralnet_set_input(neuralnet, inputs[j]);
+			neuralnet_feed_forward(neuralnet);
+			total_error += calc_error(*neuralnet, outputs[j], &err);
 
-			cout << "EPOCH[" << j<< ":" << i << "] ERROR: ";
+			backprop(neuralnet, outputs[j], *err);
+		}
 
-			for (int t = 0; t < (int) outputs.size(); t++) 
-			{ 
-				cout << "\t" << setprecision(6) << errors[t];
+		if (i % 4000 == 0)
+		{
+			prev = curr;
+			curr = total_error;
 
-				avg_train += errors[t];
-			}
-			avg_train /= inputs.size();
+			if (i > 20000 && curr-prev >= 0) { break; }
 
-			cout << "\t" << setprecision(6) << avg_train;
+			if (prev - curr < 0.001 && prev - curr > 0.0001) { lr += 0.002; }
+			else if (prev - curr > 0.003 && lr > 0.01) { lr -= (lr > 0 ? 0.006 : 0.0); }
 
-			if (avg_train < 0.0000001) { break; }
+			cout << i << ". TOTAL ERROR: " << setprecision(6) << total_error << endl;
 
-			if (i > 200 && prev - avg_train <= 0)
-			{
-				count++;
-			}
-			else
-			{
-				count = 0;
-			}
+			if (total_error < 0.00001) {break;}
+		}
 
-			// if (i > 4000 && prev - avg_train <= 0) { 
-			// 	count++;
-			// }
-
-			if (count > 10)
-			{
-				cout << "\n\nDONE TRAINING\n"; 
-				cout << "PREV: " <<  prev << " CURR: " << avg_train << endl;
-				break; 
-			}
-			cout << endl;
-			if (i == 1000000) { i = 0; j++; }
-
-		}	
-
-		backprop(neuralnet, nn_output, *err);
-
-		adjust_weight(neuralnet, 0.005);
+		adjust_weight(neuralnet, .8);
+	} 
 
 
-		mat_free(err);
-	}
-
-	cout << "INPUT 1,1\n";
+	cout << "\nINPUT 1,1\n";
 	nn_input.data[0][0] = 1.0;
 	nn_input.data[0][1] = 1.0;
 
@@ -151,7 +121,7 @@ int main(int argc, char **argv)
 	mat_print((*(neuralnet->layers.end()-1))->mat);
 
 	cout << endl;
-	cout << "INPUT 1,0\n";
+	cout << "\nINPUT 1,0\n";
 	nn_input.data[0][0] = 1.0;
 	nn_input.data[0][1] = 0.0;
 
@@ -162,7 +132,7 @@ int main(int argc, char **argv)
 	cout << endl;
 
 	cout << endl;
-	cout << "INPUT 0,1\n";
+	cout << "\nINPUT 0,1\n";
 	nn_input.data[0][0] = 0.0;
 	nn_input.data[0][1] = 1.0;
 	cout << endl << endl;
@@ -172,7 +142,7 @@ int main(int argc, char **argv)
 	mat_print((*(neuralnet->layers.end()-1))->mat);
 	cout << endl;
 
-	cout << "INPUT 0,0\n";
+	cout << "\nINPUT 0,0\n";
 	nn_input.data[0][0] = 0.0;
 	nn_input.data[0][1] = 0.0;
 
